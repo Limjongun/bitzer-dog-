@@ -3,6 +3,9 @@ import mujoco.viewer
 import time
 import cv2
 import numpy as np
+import threading
+import re
+from llama_cpp import Llama
 
 # ─────────────────────────────────────────────────────────────
 # State kontrol robot (tombol yang sedang ditekan)
@@ -59,6 +62,106 @@ def reset():
     crouching = False
     for k in ctrl_state: ctrl_state[k] = False
     print("[RESET]")
+
+# ─────────────────────────────────────────────────────────────
+# AI Prompting (Qwen Local LLM)
+# ─────────────────────────────────────────────────────────────
+MODEL_PATH = r"D:\anjing\Qwen3.5-0.8B-Q4_K_M.gguf"
+try:
+    print("[AI] Memuat model Qwen ke memori (harap tunggu)...")
+    llm = Llama(model_path=MODEL_PATH, n_ctx=2048, n_gpu_layers=-1, verbose=False)
+    print("[AI] Model berhasil dimuat!")
+except Exception as e:
+    print(f"[AI] Gagal memuat model: {e}")
+    llm = None
+
+SYSTEM_PROMPT = """Kamu adalah AI pengontrol robot anjing 4WD.
+User akan memberikan perintah. 
+Kamu WAJIB membalas dengan kalimat bahasa Indonesia yang sangat singkat, lalu AKHIRI pesanmu dengan SATU token perintah aksi dalam kurung siku berikut:
+[MAJU]
+[MUNDUR]
+[KIRI]
+[KANAN]
+[JONGKOK]
+[TEGAK]
+[STOP]
+
+Contoh respons:
+Siap laksanakan, saya maju sekarang. [MAJU]
+"""
+
+def execute_ai_command(command):
+    global crouching
+    print(f"\n>>> [EKSEKUSI ROBOT]: Menerima perintah {command} <<<")
+    
+    if command == "[STOP]":
+        for k in ["front", "back", "left", "right"]: ctrl_state[k] = False
+    elif command == "[MAJU]":
+        for k in ["front", "back", "left", "right"]: ctrl_state[k] = False
+        ctrl_state["front"] = True
+    elif command == "[MUNDUR]":
+        for k in ["front", "back", "left", "right"]: ctrl_state[k] = False
+        ctrl_state["back"] = True
+    elif command == "[KIRI]":
+        for k in ["front", "back", "left", "right"]: ctrl_state[k] = False
+        ctrl_state["left"] = True
+    elif command == "[KANAN]":
+        for k in ["front", "back", "left", "right"]: ctrl_state[k] = False
+        ctrl_state["right"] = True
+    elif command == "[JONGKOK]":
+        crouching = True
+        set_legs(CROUCH_SH, CROUCH_KN)
+    elif command == "[TEGAK]":
+        crouching = False
+        set_legs(STAND_SH, STAND_KN)
+
+def ai_chat_loop():
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    while True:
+        try:
+            user_input = input("\n[Ketik Perintah AI] You: ")
+            if user_input.strip() == "": continue
+            if user_input.lower() in ["exit", "quit"]:
+                print("[AI] Sistem chat dimatikan.")
+                break
+            
+            messages.append({"role": "user", "content": user_input})
+            print("AI: ", end="", flush=True)
+            
+            response = llm.create_chat_completion(
+                messages=messages,
+                temperature=0.4,
+                max_tokens=128,
+                stream=True
+            )
+            
+            assistant_text = ""
+            for chunk in response:
+                delta = chunk["choices"][0]["delta"]
+                if "content" in delta:
+                    text = delta["content"]
+                    print(text, end="", flush=True)
+                    assistant_text += text
+            
+            print()
+            messages.append({"role": "assistant", "content": assistant_text})
+            
+            # Ekstrak token dengan regex
+            found_commands = re.findall(r'\[(MAJU|MUNDUR|KIRI|KANAN|JONGKOK|TEGAK|STOP)\]', assistant_text.upper())
+            if found_commands:
+                cmd = f"[{found_commands[-1]}]" # ambil token terakhir jika AI nyebut banyak
+                execute_ai_command(cmd)
+                
+        except EOFError:
+            break
+        except Exception as e:
+            print(f"\n[AI] Error saat chatting: {e}")
+
+# Jalankan AI Agent di background thread agar tidak membekukan simulasi
+if llm is not None:
+    chat_thread = threading.Thread(target=ai_chat_loop, daemon=True)
+    chat_thread.start()
+
 
 # ─────────────────────────────────────────────────────────────
 # Layout tombol UI
@@ -154,8 +257,9 @@ cv2.namedWindow(WIN)
 cv2.setMouseCallback(WIN, on_mouse)
 
 print("=" * 50)
-print("  Wheeled Dog Simulator")
-print("  Klik tombol UI di jendela FPV untuk mengontrol.")
+print("  Wheeled Dog Simulator + LLM AI Control")
+print("  - Klik tombol UI di jendela FPV untuk mengontrol manual.")
+print("  - Atau ketik perintah teks di terminal ini untuk AI.")
 print("=" * 50)
 
 RENDER_DT = 1.0 / 30
