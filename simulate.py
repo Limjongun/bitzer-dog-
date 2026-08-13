@@ -96,6 +96,7 @@ Saya tidak melihat benda kuning di gambar ini, saya akan berputar mencari. [KANA
 
 current_mission = ""
 latest_frame = None
+ai_latest_thought = "Menunggu Misi..."
 
 def encode_image(img):
     # Resize agar lebih ringan bagi Qwen
@@ -169,6 +170,9 @@ def ai_chat_loop():
             assistant_text = response["choices"][0]["message"]["content"]
             print(f"Keputusan: {assistant_text}")
             
+            global ai_latest_thought
+            ai_latest_thought = assistant_text
+            
             # Ekstrak token dengan regex
             found_commands = re.findall(r'\[(MAJU|MUNDUR|KIRI|KANAN|JONGKOK|TEGAK|STOP|RESET)\]', assistant_text.upper())
             if found_commands:
@@ -201,10 +205,13 @@ def input_thread_func():
                 break
             
             current_mission = inp
+            global ai_latest_thought
             if current_mission.lower() == "stop":
                 execute_ai_commands(["[STOP]"])
+                ai_latest_thought = "Misi dihentikan."
                 print("[AI] Misi dihentikan.")
             else:
+                ai_latest_thought = "Berpikir... (Memotret Kamera)"
                 print(f"[AI] Misi Diterima: {current_mission}. Mode Otonom Aktif!")
         except:
             break
@@ -271,8 +278,43 @@ def draw_status(img):
     cv2.rectangle(img, (w-140, 8), (w-8, 42), col, -1)
     cv2.putText(img, label, (w-135, 33),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2, cv2.LINE_AA)
-    cv2.putText(img, "Robot FPV – Mata Robot",
+    cv2.putText(img, "Robot FPV - AI Controller",
                 (10, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200,230,255), 1, cv2.LINE_AA)
+    return img
+
+def draw_ai_box(img):
+    # Kotak UI di sebelah kanan tombol manual
+    x1, y1 = 390, 500
+    x2, y2 = 630, 680
+    
+    # Background kotak
+    cv2.rectangle(img, (x1, y1), (x2, y2), (40, 40, 45), -1)
+    cv2.rectangle(img, (x1, y1), (x2, y2), (80, 80, 90), 1)
+    
+    # Header Misi
+    m_text = current_mission if current_mission else "KOSONG (Manual)"
+    if len(m_text) > 28: m_text = m_text[:25] + "..."
+    cv2.putText(img, f"Misi: {m_text}", (x1+10, y1+25), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1, cv2.LINE_AA)
+    
+    # Teks Pemikiran AI (Word Wrap sederhana)
+    words = ai_latest_thought.split(' ')
+    lines = []
+    curr = ""
+    for w in words:
+        if len(curr) + len(w) < 32:
+            curr += w + " "
+        else:
+            lines.append(curr)
+            curr = w + " "
+    if curr: lines.append(curr)
+    
+    ly = y1 + 55
+    for l in lines[:6]: # Maksimal 6 baris agar tidak keluar kotak
+        cv2.putText(img, l, (x1+10, ly), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (220, 220, 220), 1, cv2.LINE_AA)
+        ly += 20
+        
     return img
 
 # ─────────────────────────────────────────────────────────────
@@ -369,6 +411,7 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
 
             canvas = draw_status(canvas)
             canvas = draw_buttons(canvas)
+            canvas = draw_ai_box(canvas)
             cv2.imshow(WIN, canvas)
             last_render = now
 
