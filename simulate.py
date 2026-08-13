@@ -36,14 +36,11 @@ A = {
     "bl_wh": aid("bl_wheel_motor"),    "br_wh": aid("br_wheel_motor"),
 }
 
+# Posisi stabil (tegak) dan jongkok
 STAND_SH  =  0.0;  STAND_KN  =  0.0
 CROUCH_SH =  0.5;  CROUCH_KN = -0.9
 WALK_SPD  =  20.0
 
-# Sudut lean kaki saat bergerak (mencegah jungkal)
-# positif = condong ke belakang, menstabilkan robot saat maju
-LEAN_FWD  =  -0.25   # condong maju saat mundur
-LEAN_BACK =   0.25   # condong mundur saat maju (anti-wheelie)
 
 def set_legs(sh, kn):
     for k in ["fl_sh","fr_sh","bl_sh","br_sh"]: data.ctrl[A[k]] = sh
@@ -138,12 +135,8 @@ def on_mouse(event, mx, my, flags, _):
                     crouching = True;  set_legs(CROUCH_SH, CROUCH_KN)
                 else:
                     ctrl_state[key] = True
-                    # Auto-lean untuk cegah jungkal
                     if not crouching:
-                        if key == "front":
-                            set_legs(LEAN_BACK, STAND_KN)  # lean ke belakang → anti-wheelie
-                        elif key == "back":
-                            set_legs(LEAN_FWD, STAND_KN)   # lean ke depan → anti-flip balik
+                        set_legs(STAND_SH, STAND_KN)
             elif event == cv2.EVENT_LBUTTONUP:
                 if key in ctrl_state:
                     ctrl_state[key] = False
