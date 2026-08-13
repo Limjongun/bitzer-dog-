@@ -1,0 +1,187 @@
+<mujoco model="wheeled_dog">
+    <compiler angle="radian" inertiafromgeom="true"/>
+    <option timestep="0.002" gravity="0 0 -9.81" iterations="100" solver="Newton"/>
+
+    <default>
+        <joint limited="true" damping="2.0" armature="0.05" stiffness="0"/>
+        <!-- IMPORTANT: contype="0" conaffinity="0" prevents the torso from exploding through the floor -->
+        <geom friction="0.8 0.05 0.05" density="500" margin="0.001"
+              contype="0" conaffinity="0"/>
+    </default>
+
+    <asset>
+        <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0.05 0.05 0.12" width="512" height="512"/>
+        <material name="mat_floor" rgba="0.35 0.35 0.38 1" reflectance="0.0" shininess="0.0"/>
+    </asset>
+
+    <worldbody>
+        <light directional="true" diffuse="0.9 0.9 0.9" specular="0.3 0.3 0.3"
+               pos="0 0 5" dir="0 0 -1"/>
+               
+        <!-- LANTAI: Tidak tembus karena contype=1 conaffinity=1 dan condim=6 -->
+        <geom name="floor" type="plane" size="20 20 0.5" pos="0 0 0"
+              material="mat_floor" condim="6" contype="1" conaffinity="1"
+              friction="1.2 0.05 0.05" solref="0.01 1" solimp="0.99 0.999 0.001"/>
+
+        <!-- ═══ OBJEK RINTANGAN STATIS (Tembok/Halangan Tetap) ═══ -->
+        <geom type="box" size="0.5 0.5 0.25" pos="3 3 0.25" rgba="0.7 0.3 0.3 1" contype="1" conaffinity="1"/>
+        <geom type="cylinder" size="0.3 0.4" pos="-3 2 0.4" rgba="0.3 0.7 0.3 1" contype="1" conaffinity="1"/>
+        <geom type="box" size="1.5 0.2 0.4" pos="0 5 0.4" rgba="0.3 0.3 0.7 1" contype="1" conaffinity="1"/>
+        <geom type="box" size="0.2 1.5 0.4" pos="-4 -2 0.4" rgba="0.3 0.3 0.7 1" contype="1" conaffinity="1"/>
+        <geom type="sphere" size="0.4" pos="4 -2 0.4" rgba="0.7 0.7 0.3 1" contype="1" conaffinity="1"/>
+        <geom type="cylinder" size="0.4 0.1" pos="0 -4 0.1" rgba="0.6 0.6 0.6 1" contype="1" conaffinity="1"/>
+        <geom type="box" size="0.4 0.4 0.4" pos="2 -4 0.4" rgba="0.4 0.7 0.5 1" contype="1" conaffinity="1"/>
+        <geom type="box" size="0.6 0.2 0.2" pos="-2 4 0.2" rgba="0.8 0.4 0.4 1" contype="1" conaffinity="1"/>
+
+        <!-- ═══ OBJEK RINTANGAN DINAMIS (Bisa didorong robot) ═══ -->
+        <body name="dyn_box1" pos="2 -2 0.5">
+            <freejoint/>
+            <geom type="box" size="0.2 0.2 0.2" rgba="0.9 0.6 0.2 1" contype="1" conaffinity="1" mass="1.0" friction="0.5 0.05 0.05"/>
+        </body>
+        <body name="dyn_ball1" pos="-2 -3 0.5">
+            <freejoint/>
+            <geom type="sphere" size="0.25" rgba="0.2 0.8 0.9 1" contype="1" conaffinity="1" mass="0.5" friction="0.5 0.05 0.05"/>
+        </body>
+        <body name="dyn_ball2" pos="1.5 1.5 0.5">
+            <freejoint/>
+            <geom type="sphere" size="0.2" rgba="0.9 0.2 0.5 1" contype="1" conaffinity="1" mass="0.3" friction="0.5 0.05 0.05"/>
+        </body>
+        <body name="dyn_cyl1" pos="-1.5 2.5 0.5">
+            <freejoint/>
+            <geom type="cylinder" size="0.15 0.3" rgba="0.8 0.3 0.8 1" contype="1" conaffinity="1" mass="0.8" friction="0.5 0.05 0.05"/>
+        </body>
+        <body name="dyn_box2" pos="0 -2.5 0.3">
+            <freejoint/>
+            <geom type="box" size="0.15 0.3 0.15" rgba="0.4 0.4 0.9 1" contype="1" conaffinity="1" mass="0.6" friction="0.5 0.05 0.05"/>
+        </body>
+
+        <!-- TINGGI SPAWN (z=0.43) agar roda menempel persis di lantai -->
+        <body name="torso" pos="0 0 0.43">
+            <freejoint name="root"/>
+            
+            <!-- COM ANTI JUNGKAL -->
+            <inertial pos="0 0 -0.30" mass="5.0" diaginertia="0.1 0.2 0.1"/>
+
+            <geom name="torso_geom" type="box" size="0.22 0.12 0.04"
+                  rgba="0.25 0.25 0.28 1" contype="0" conaffinity="0"/>
+            <geom name="head_geom" type="sphere" size="0.05" pos="0.22 0 0.03"
+                  rgba="0.3 0.3 0.35 1" contype="0" conaffinity="0"/>
+            <camera name="front_cam" pos="0.23 0 0.07" xyaxes="0 -1 0 0.1 0 1" fovy="80"/>
+
+            <!-- ═══ KAKI DEPAN KIRI (Front-Left) ═══ -->
+            <body name="fl_thigh" pos="0.16 0.13 0">
+                <joint name="fl_shoulder" type="hinge" axis="0 1 0"
+                       range="-1.2 1.2" damping="3.0"/>
+                <geom type="capsule" size="0.025" fromto="0 0 0 0 0 -0.18"
+                      rgba="0.8 0.2 0.2 1" contype="0" conaffinity="0"/>
+                <body name="fl_shin" pos="0 0 -0.18">
+                    <joint name="fl_knee" type="hinge" axis="0 1 0"
+                           range="-1.8 0" damping="3.0"/>
+                    <geom type="capsule" size="0.02" fromto="0 0 0 0 0 -0.18"
+                          rgba="0.9 0.3 0.3 1" contype="0" conaffinity="0"/>
+                    <body name="fl_wheel_body" pos="0 0 -0.18">
+                        <joint name="fl_wheel" type="hinge" axis="0 1 0"
+                               limited="false" damping="0.05" armature="0.01"/>
+                        <geom type="cylinder" size="0.06 0.025"
+                              quat="0.7071 0.7071 0 0"
+                              rgba="0.1 0.1 0.1 1"
+                              contype="1" conaffinity="1"
+                              friction="1.2 0.05 0.05"/>
+                    </body>
+                </body>
+            </body>
+
+            <!-- ═══ KAKI DEPAN KANAN (Front-Right) ═══ -->
+            <body name="fr_thigh" pos="0.16 -0.13 0">
+                <joint name="fr_shoulder" type="hinge" axis="0 1 0"
+                       range="-1.2 1.2" damping="3.0"/>
+                <geom type="capsule" size="0.025" fromto="0 0 0 0 0 -0.18"
+                      rgba="0.2 0.8 0.2 1" contype="0" conaffinity="0"/>
+                <body name="fr_shin" pos="0 0 -0.18">
+                    <joint name="fr_knee" type="hinge" axis="0 1 0"
+                           range="-1.8 0" damping="3.0"/>
+                    <geom type="capsule" size="0.02" fromto="0 0 0 0 0 -0.18"
+                          rgba="0.3 0.9 0.3 1" contype="0" conaffinity="0"/>
+                    <body name="fr_wheel_body" pos="0 0 -0.18">
+                        <joint name="fr_wheel" type="hinge" axis="0 1 0"
+                               limited="false" damping="0.05" armature="0.01"/>
+                        <geom type="cylinder" size="0.06 0.025"
+                              quat="0.7071 0.7071 0 0"
+                              rgba="0.1 0.1 0.1 1"
+                              contype="1" conaffinity="1"
+                              friction="1.2 0.05 0.05"/>
+                    </body>
+                </body>
+            </body>
+
+            <!-- ═══ KAKI BELAKANG KIRI (Back-Left) ═══ -->
+            <body name="bl_thigh" pos="-0.16 0.13 0">
+                <joint name="bl_shoulder" type="hinge" axis="0 1 0"
+                       range="-1.2 1.2" damping="3.0"/>
+                <geom type="capsule" size="0.025" fromto="0 0 0 0 0 -0.18"
+                      rgba="0.2 0.2 0.9 1" contype="0" conaffinity="0"/>
+                <body name="bl_shin" pos="0 0 -0.18">
+                    <joint name="bl_knee" type="hinge" axis="0 1 0"
+                           range="-1.8 0" damping="3.0"/>
+                    <geom type="capsule" size="0.02" fromto="0 0 0 0 0 -0.18"
+                          rgba="0.3 0.3 1.0 1" contype="0" conaffinity="0"/>
+                    <body name="bl_wheel_body" pos="0 0 -0.18">
+                        <joint name="bl_wheel" type="hinge" axis="0 1 0"
+                               limited="false" damping="0.05" armature="0.01"/>
+                        <geom type="cylinder" size="0.06 0.025"
+                              quat="0.7071 0.7071 0 0"
+                              rgba="0.1 0.1 0.1 1"
+                              contype="1" conaffinity="1"
+                              friction="1.2 0.05 0.05"/>
+                    </body>
+                </body>
+            </body>
+
+            <!-- ═══ KAKI BELAKANG KANAN (Back-Right) ═══ -->
+            <body name="br_thigh" pos="-0.16 -0.13 0">
+                <joint name="br_shoulder" type="hinge" axis="0 1 0"
+                       range="-1.2 1.2" damping="3.0"/>
+                <geom type="capsule" size="0.025" fromto="0 0 0 0 0 -0.18"
+                      rgba="0.9 0.8 0.1 1" contype="0" conaffinity="0"/>
+                <body name="br_shin" pos="0 0 -0.18">
+                    <joint name="br_knee" type="hinge" axis="0 1 0"
+                           range="-1.8 0" damping="3.0"/>
+                    <geom type="capsule" size="0.02" fromto="0 0 0 0 0 -0.18"
+                          rgba="1.0 0.9 0.2 1" contype="0" conaffinity="0"/>
+                    <body name="br_wheel_body" pos="0 0 -0.18">
+                        <joint name="br_wheel" type="hinge" axis="0 1 0"
+                               limited="false" damping="0.05" armature="0.01"/>
+                        <geom type="cylinder" size="0.06 0.025"
+                              quat="0.7071 0.7071 0 0"
+                              rgba="0.1 0.1 0.1 1"
+                              contype="1" conaffinity="1"
+                              friction="1.2 0.05 0.05"/>
+                    </body>
+                </body>
+            </body>
+        </body>
+    </worldbody>
+
+    <actuator>
+        <position name="fl_shoulder_motor" joint="fl_shoulder" kp="20" ctrllimited="true" ctrlrange="-1.2 1.2"/>
+        <position name="fr_shoulder_motor" joint="fr_shoulder" kp="20" ctrllimited="true" ctrlrange="-1.2 1.2"/>
+        <position name="bl_shoulder_motor" joint="bl_shoulder" kp="20" ctrllimited="true" ctrlrange="-1.2 1.2"/>
+        <position name="br_shoulder_motor" joint="br_shoulder" kp="20" ctrllimited="true" ctrlrange="-1.2 1.2"/>
+
+        <position name="fl_knee_motor" joint="fl_knee" kp="20" ctrllimited="true" ctrlrange="-1.8 0"/>
+        <position name="fr_knee_motor" joint="fr_knee" kp="20" ctrllimited="true" ctrlrange="-1.8 0"/>
+        <position name="bl_knee_motor" joint="bl_knee" kp="20" ctrllimited="true" ctrlrange="-1.8 0"/>
+        <position name="br_knee_motor" joint="br_knee" kp="20" ctrllimited="true" ctrlrange="-1.8 0"/>
+
+        <!-- Torsi diperkecil ke 3 agar tidak meledak, batas diredam -->
+        <velocity name="fl_wheel_motor" joint="fl_wheel" kv="3" ctrllimited="true" ctrlrange="-20 20"/>
+        <velocity name="fr_wheel_motor" joint="fr_wheel" kv="3" ctrllimited="true" ctrlrange="-20 20"/>
+        <velocity name="bl_wheel_motor" joint="bl_wheel" kv="3" ctrllimited="true" ctrlrange="-20 20"/>
+        <velocity name="br_wheel_motor" joint="br_wheel" kv="3" ctrllimited="true" ctrlrange="-20 20"/>
+    </actuator>
+
+    <keyframe>
+        <key name="stand" qpos="0 0 0.43 1 0 0 0   0 0 0 0   0 0 0 0   0 0 0 0"
+                          ctrl="0 0 0 0   0 0 0 0   0 0 0 0"/>
+    </keyframe>
+</mujoco>
