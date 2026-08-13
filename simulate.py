@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import threading
 import re
+import base64
 from llama_cpp import Llama
 
 # ─────────────────────────────────────────────────────────────
@@ -65,42 +66,39 @@ def reset():
     print("[RESET]")
 
 # ─────────────────────────────────────────────────────────────
-# AI Prompting (Qwen Local LLM)
+# AI Prompting (Autonomous Native Vision)
 # ─────────────────────────────────────────────────────────────
 MODEL_PATH = r"D:\anjing\Qwen3.5-0.8B-Q4_K_M.gguf"
 try:
     print("[AI] Memuat model Qwen ke memori (harap tunggu)...")
+    # Jika Qwen3.5 mendukung vision natively di GGUF ini, ia akan menerima payload image_url
     llm = Llama(model_path=MODEL_PATH, n_ctx=2048, n_gpu_layers=-1, verbose=False)
     print("[AI] Model berhasil dimuat!")
 except Exception as e:
     print(f"[AI] Gagal memuat model: {e}")
     llm = None
 
-SYSTEM_PROMPT = """Kamu adalah AI pengontrol robot anjing 4WD.
-User akan memberikan perintah. 
-Kamu WAJIB membalas dengan kalimat bahasa Indonesia yang sangat singkat, lalu AKHIRI pesanmu dengan token perintah aksi dalam kurung siku.
-Kamu BISA mengeluarkan LEBIH DARI SATU token jika user meminta gabungan perintah (contoh: "maju dan belok kanan" -> [MAJU] [KANAN]).
-Daftar token yang valid:
-[MAJU]
-[MUNDUR]
-[KIRI]
-[KANAN]
-[JONGKOK]
-[TEGAK]
-[STOP]
-[RESET]
+SYSTEM_PROMPT = """Kamu adalah AI robot anjing 4WD otonom.
+User akan memberikan misi kepadamu. Kamu harus melihat gambar dari kamera yang dilampirkan, lalu tentukan SATU langkah selanjutnya untuk menyelesaikan misi tersebut.
+Kamu WAJIB membalas dengan kalimat bahasa Indonesia yang sangat singkat, dan AKHIRI pesanmu dengan token perintah aksi dalam kurung siku.
+Daftar token yang valid: [MAJU], [MUNDUR], [KIRI], [KANAN], [JONGKOK], [TEGAK], [STOP], [RESET].
 
-Contoh respons 1:
-Siap laksanakan, saya maju sekarang. [MAJU]
-Contoh respons 2:
-Baik, saya akan maju sambil belok kanan. [MAJU] [KANAN]
-Contoh respons 3:
-Sistem di-reset ke posisi awal. [RESET]
+Contoh:
+Objek kuning ada di kiri, saya belok kiri. [KIRI]
 """
+
+current_mission = ""
+latest_frame = None
+
+def encode_image(img):
+    # Resize agar lebih ringan bagi Qwen
+    img_resized = cv2.resize(img, (224, 224))
+    _, buffer = cv2.imencode('.jpg', img_resized)
+    return base64.b64encode(buffer).decode('utf-8')
 
 def execute_ai_commands(commands):
     global crouching
-    print(f"\n>>> [EKSEKUSI ROBOT]: Menerima kombinasi perintah {commands} <<<")
+    print(f"\n>>> [EKSEKUSI ROBOT]: {commands} <<<")
     
     # Jika ada perintah pergerakan dasar, reset dulu state pergerakan sebelumnya
     move_commands = {"[STOP]", "[MAJU]", "[MUNDUR]", "[KIRI]", "[KANAN]"}
@@ -126,54 +124,90 @@ def execute_ai_commands(commands):
             set_legs(STAND_SH, STAND_KN)
 
 def ai_chat_loop():
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    global current_mission, latest_frame
     while True:
         try:
-            user_input = input("\n[Ketik Perintah AI] You: ")
-            if user_input.strip() == "": continue
-            if user_input.lower() in ["exit", "quit"]:
-                print("[AI] Sistem chat dimatikan.")
+            if not current_mission or current_mission.lower() == "stop":
+                time.sleep(1)
+                continue
+                
+            if current_mission == "EXIT":
                 break
+
+            if latest_frame is None:
+                time.sleep(0.5)
+                continue
             
-            messages.append({"role": "user", "content": user_input})
-            print("AI: ", end="", flush=True)
+            # Persiapkan gambar
+            base64_image = encode_image(latest_frame)
             
+            # Bangun multimodal prompt
+            messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+            messages.append({
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": f"MISI: {current_mission}. Berdasarkan foto kamera FPV saat ini, apa langkah selanjutnya?"},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                ]
+            })
+            
+            print("[AI] Melihat kamera & berpikir...", end=" ", flush=True)
             response = llm.create_chat_completion(
                 messages=messages,
-                temperature=0.4,
-                max_tokens=128,
-                stream=True
+                temperature=0.2,
+                max_tokens=64,
+                stream=False
             )
             
-            assistant_text = ""
-            for chunk in response:
-                delta = chunk["choices"][0]["delta"]
-                if "content" in delta:
-                    text = delta["content"]
-                    print(text, end="", flush=True)
-                    assistant_text += text
+            assistant_text = response["choices"][0]["message"]["content"]
+            print(f"Keputusan: {assistant_text}")
             
-            print()
-            messages.append({"role": "assistant", "content": assistant_text})
-            
-            # Ekstrak semua token dengan regex untuk mendukung chain prompt
+            # Ekstrak token dengan regex
             found_commands = re.findall(r'\[(MAJU|MUNDUR|KIRI|KANAN|JONGKOK|TEGAK|STOP|RESET)\]', assistant_text.upper())
             if found_commands:
                 cmds = []
                 for c in found_commands:
                     cmd_str = f"[{c}]"
-                    if cmd_str not in cmds: cmds.append(cmd_str) # hindari duplikat
+                    if cmd_str not in cmds: cmds.append(cmd_str)
                 execute_ai_commands(cmds)
                 
-        except EOFError:
-            break
+                if "[STOP]" in cmds:
+                    print("[AI] Misi dianggap selesai oleh AI!")
+                    current_mission = ""
+            
+            # Jeda agar robot punya waktu bergerak sebelum dipotret lagi
+            time.sleep(1.5)
+                
         except Exception as e:
-            print(f"\n[AI] Error saat chatting: {e}")
+            print(f"\n[AI] Error Visi: {e}")
+            current_mission = ""
+            time.sleep(2)
 
-# Jalankan AI Agent di background thread agar tidak membekukan simulasi
+def input_thread_func():
+    global current_mission
+    while True:
+        try:
+            inp = input("\n[Ketik Misi AI ('stop' untuk rem)] You: ")
+            if not inp.strip(): continue
+            if inp.lower() in ["exit", "quit"]:
+                current_mission = "EXIT"
+                break
+            
+            current_mission = inp
+            if current_mission.lower() == "stop":
+                execute_ai_commands(["[STOP]"])
+                print("[AI] Misi dihentikan.")
+            else:
+                print(f"[AI] Misi Diterima: {current_mission}. Mode Otonom Aktif!")
+        except:
+            break
+
+# Jalankan AI Agent dan Input di background thread
 if llm is not None:
     chat_thread = threading.Thread(target=ai_chat_loop, daemon=True)
     chat_thread.start()
+    inp_thread = threading.Thread(target=input_thread_func, daemon=True)
+    inp_thread.start()
 
 
 # ─────────────────────────────────────────────────────────────
@@ -318,6 +352,10 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
             renderer.update_scene(data, camera="front_cam")
             pixels = renderer.render()
             frame  = cv2.cvtColor(pixels, cv2.COLOR_RGB2BGR)
+            
+            # Simpan frame untuk AI vision
+            global latest_frame
+            latest_frame = frame.copy()
 
             panel  = np.zeros((210, frame.shape[1], 3), dtype=np.uint8)
             panel[:] = (20, 20, 22)
