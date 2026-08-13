@@ -97,6 +97,8 @@ Saya tidak melihat benda kuning di gambar ini, saya akan berputar mencari. [KANA
 current_mission = ""
 latest_frame = None
 ai_latest_thought = "Menunggu Misi..."
+is_typing = False
+input_buffer = ""
 
 def encode_image(img):
     # Resize agar lebih ringan bagi Qwen
@@ -194,34 +196,10 @@ def ai_chat_loop():
             current_mission = ""
             time.sleep(2)
 
-def input_thread_func():
-    global current_mission
-    while True:
-        try:
-            inp = input("\n[Ketik Misi AI ('stop' untuk rem)] You: ")
-            if not inp.strip(): continue
-            if inp.lower() in ["exit", "quit"]:
-                current_mission = "EXIT"
-                break
-            
-            current_mission = inp
-            global ai_latest_thought
-            if current_mission.lower() == "stop":
-                execute_ai_commands(["[STOP]"])
-                ai_latest_thought = "Misi dihentikan."
-                print("[AI] Misi dihentikan.")
-            else:
-                ai_latest_thought = "Berpikir... (Memotret Kamera)"
-                print(f"[AI] Misi Diterima: {current_mission}. Mode Otonom Aktif!")
-        except:
-            break
-
-# Jalankan AI Agent dan Input di background thread
+# Jalankan AI Agent di background thread
 if llm is not None:
     chat_thread = threading.Thread(target=ai_chat_loop, daemon=True)
     chat_thread.start()
-    inp_thread = threading.Thread(target=input_thread_func, daemon=True)
-    inp_thread.start()
 
 
 # ─────────────────────────────────────────────────────────────
@@ -288,14 +266,26 @@ def draw_ai_box(img):
     x2, y2 = 630, 680
     
     # Background kotak
-    cv2.rectangle(img, (x1, y1), (x2, y2), (40, 40, 45), -1)
-    cv2.rectangle(img, (x1, y1), (x2, y2), (80, 80, 90), 1)
+    if is_typing:
+        cv2.rectangle(img, (x1, y1), (x2, y2), (60, 60, 75), -1)
+        cv2.rectangle(img, (x1, y1), (x2, y2), (100, 200, 255), 2)
+    else:
+        cv2.rectangle(img, (x1, y1), (x2, y2), (40, 40, 45), -1)
+        cv2.rectangle(img, (x1, y1), (x2, y2), (80, 80, 90), 1)
     
-    # Header Misi
-    m_text = current_mission if current_mission else "KOSONG (Manual)"
-    if len(m_text) > 28: m_text = m_text[:25] + "..."
-    cv2.putText(img, f"Misi: {m_text}", (x1+10, y1+25), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1, cv2.LINE_AA)
+    # Header Misi / Input Field
+    if is_typing:
+        blink = "_" if int(time.time() * 2) % 2 == 0 else ""
+        disp_text = f"> {input_buffer}{blink}"
+        # ambil 30 char terakhir kalau kepanjangan
+        if len(disp_text) > 30: disp_text = "> ..." + disp_text[-25:]
+        cv2.putText(img, disp_text, (x1+10, y1+25), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 255, 200), 1, cv2.LINE_AA)
+    else:
+        m_text = current_mission if current_mission else "KLIK DI SINI UTK KETIK MISI"
+        if len(m_text) > 28: m_text = m_text[:25] + "..."
+        cv2.putText(img, f"Misi: {m_text}", (x1+10, y1+25), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1, cv2.LINE_AA)
     
     # Teks Pemikiran AI (Word Wrap sederhana)
     words = ai_latest_thought.split(' ')
@@ -321,7 +311,17 @@ def draw_ai_box(img):
 # Mouse callback
 # ─────────────────────────────────────────────────────────────
 def on_mouse(event, mx, my, flags, _):
-    global crouching
+    global crouching, is_typing
+    
+    if event == cv2.EVENT_LBUTTONDOWN:
+        # Cek apakah klik kotak AI
+        x1, y1 = 390, 500
+        x2, y2 = 630, 680
+        if x1 <= mx <= x2 and y1 <= my <= y2:
+            is_typing = True
+        else:
+            is_typing = False
+            
     for label, key, col, row in BUTTONS:
         x1, y1, x2, y2 = btn_rect(col, row)
         if x1 <= mx <= x2 and y1 <= my <= y2:
@@ -415,7 +415,29 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
             cv2.imshow(WIN, canvas)
             last_render = now
 
-        if (cv2.waitKey(1) & 0xFF) == ord('q'):
-            break
+        key = cv2.waitKey(1) & 0xFF
+        if key != 255:
+            if is_typing:
+                if key == 8: # Backspace
+                    input_buffer = input_buffer[:-1]
+                elif key == 13 or key == 10: # Enter
+                    current_mission = input_buffer
+                    input_buffer = ""
+                    is_typing = False
+                    
+                    global ai_latest_thought
+                    if current_mission.lower() == "stop":
+                        execute_ai_commands(["[STOP]"])
+                        ai_latest_thought = "Misi dihentikan."
+                    else:
+                        ai_latest_thought = "Berpikir... (Memotret Kamera)"
+                        print(f"[AI] Misi Diterima via UI: {current_mission}")
+                elif key == 27: # Esc
+                    is_typing = False
+                elif 32 <= key <= 126:
+                    input_buffer += chr(key)
+            else:
+                if key == ord('q'):
+                    break
 
 cv2.destroyAllWindows()
