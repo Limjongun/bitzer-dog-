@@ -77,7 +77,9 @@ except Exception as e:
 
 SYSTEM_PROMPT = """Kamu adalah AI pengontrol robot anjing 4WD.
 User akan memberikan perintah. 
-Kamu WAJIB membalas dengan kalimat bahasa Indonesia yang sangat singkat, lalu AKHIRI pesanmu dengan SATU token perintah aksi dalam kurung siku berikut:
+Kamu WAJIB membalas dengan kalimat bahasa Indonesia yang sangat singkat, lalu AKHIRI pesanmu dengan token perintah aksi dalam kurung siku.
+Kamu BISA mengeluarkan LEBIH DARI SATU token jika user meminta gabungan perintah (contoh: "maju dan belok kanan" -> [MAJU] [KANAN]).
+Daftar token yang valid:
 [MAJU]
 [MUNDUR]
 [KIRI]
@@ -85,35 +87,42 @@ Kamu WAJIB membalas dengan kalimat bahasa Indonesia yang sangat singkat, lalu AK
 [JONGKOK]
 [TEGAK]
 [STOP]
+[RESET]
 
-Contoh respons:
+Contoh respons 1:
 Siap laksanakan, saya maju sekarang. [MAJU]
+Contoh respons 2:
+Baik, saya akan maju sambil belok kanan. [MAJU] [KANAN]
+Contoh respons 3:
+Sistem di-reset ke posisi awal. [RESET]
 """
 
-def execute_ai_command(command):
+def execute_ai_commands(commands):
     global crouching
-    print(f"\n>>> [EKSEKUSI ROBOT]: Menerima perintah {command} <<<")
+    print(f"\n>>> [EKSEKUSI ROBOT]: Menerima kombinasi perintah {commands} <<<")
     
-    if command == "[STOP]":
+    # Jika ada perintah pergerakan dasar, reset dulu state pergerakan sebelumnya
+    move_commands = {"[STOP]", "[MAJU]", "[MUNDUR]", "[KIRI]", "[KANAN]"}
+    if any(cmd in move_commands for cmd in commands):
         for k in ["front", "back", "left", "right"]: ctrl_state[k] = False
-    elif command == "[MAJU]":
-        for k in ["front", "back", "left", "right"]: ctrl_state[k] = False
-        ctrl_state["front"] = True
-    elif command == "[MUNDUR]":
-        for k in ["front", "back", "left", "right"]: ctrl_state[k] = False
-        ctrl_state["back"] = True
-    elif command == "[KIRI]":
-        for k in ["front", "back", "left", "right"]: ctrl_state[k] = False
-        ctrl_state["left"] = True
-    elif command == "[KANAN]":
-        for k in ["front", "back", "left", "right"]: ctrl_state[k] = False
-        ctrl_state["right"] = True
-    elif command == "[JONGKOK]":
-        crouching = True
-        set_legs(CROUCH_SH, CROUCH_KN)
-    elif command == "[TEGAK]":
-        crouching = False
-        set_legs(STAND_SH, STAND_KN)
+
+    for command in commands:
+        if command == "[RESET]":
+            reset()
+        elif command == "[MAJU]":
+            ctrl_state["front"] = True
+        elif command == "[MUNDUR]":
+            ctrl_state["back"] = True
+        elif command == "[KIRI]":
+            ctrl_state["left"] = True
+        elif command == "[KANAN]":
+            ctrl_state["right"] = True
+        elif command == "[JONGKOK]":
+            crouching = True
+            set_legs(CROUCH_SH, CROUCH_KN)
+        elif command == "[TEGAK]":
+            crouching = False
+            set_legs(STAND_SH, STAND_KN)
 
 def ai_chat_loop():
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -146,11 +155,14 @@ def ai_chat_loop():
             print()
             messages.append({"role": "assistant", "content": assistant_text})
             
-            # Ekstrak token dengan regex
-            found_commands = re.findall(r'\[(MAJU|MUNDUR|KIRI|KANAN|JONGKOK|TEGAK|STOP)\]', assistant_text.upper())
+            # Ekstrak semua token dengan regex untuk mendukung chain prompt
+            found_commands = re.findall(r'\[(MAJU|MUNDUR|KIRI|KANAN|JONGKOK|TEGAK|STOP|RESET)\]', assistant_text.upper())
             if found_commands:
-                cmd = f"[{found_commands[-1]}]" # ambil token terakhir jika AI nyebut banyak
-                execute_ai_command(cmd)
+                cmds = []
+                for c in found_commands:
+                    cmd_str = f"[{c}]"
+                    if cmd_str not in cmds: cmds.append(cmd_str) # hindari duplikat
+                execute_ai_commands(cmds)
                 
         except EOFError:
             break
