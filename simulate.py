@@ -42,7 +42,7 @@ A = {
 # Posisi stabil (tegak) dan jongkok
 STAND_SH  =  0.0;  STAND_KN  =  0.0
 CROUCH_SH =  0.5;  CROUCH_KN = -0.9
-WALK_SPD  =  20.0
+WALK_SPD  =  40.0
 
 
 def set_legs(sh, kn):
@@ -50,7 +50,7 @@ def set_legs(sh, kn):
     for k in ["fl_kn","fr_kn","bl_kn","br_kn"]: data.ctrl[A[k]] = kn
 
 def set_wheels(vL, vR):
-    vL = max(-25.0, min(25.0, vL)); vR = max(-25.0, min(25.0, vR))
+    vL = max(-50.0, min(50.0, vL)); vR = max(-50.0, min(50.0, vR))
     data.ctrl[A["fl_wh"]] = vL; data.ctrl[A["bl_wh"]] = vL
     data.ctrl[A["fr_wh"]] = vR; data.ctrl[A["br_wh"]] = vR
 
