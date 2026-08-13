@@ -23,38 +23,6 @@
               material="mat_floor" condim="6" contype="1" conaffinity="1"
               friction="1.2 0.05 0.05" solref="0.01 1" solimp="0.99 0.999 0.001"/>
 
-        <!-- ═══ OBJEK RINTANGAN STATIS (Tembok/Halangan Tetap) ═══ -->
-        <geom type="box" size="0.5 0.5 0.25" pos="3 3 0.25" rgba="0.7 0.3 0.3 1" contype="1" conaffinity="1"/>
-        <geom type="cylinder" size="0.3 0.4" pos="-3 2 0.4" rgba="0.3 0.7 0.3 1" contype="1" conaffinity="1"/>
-        <geom type="box" size="1.5 0.2 0.4" pos="0 5 0.4" rgba="0.3 0.3 0.7 1" contype="1" conaffinity="1"/>
-        <geom type="box" size="0.2 1.5 0.4" pos="-4 -2 0.4" rgba="0.3 0.3 0.7 1" contype="1" conaffinity="1"/>
-        <geom type="sphere" size="0.4" pos="4 -2 0.4" rgba="0.7 0.7 0.3 1" contype="1" conaffinity="1"/>
-        <geom type="cylinder" size="0.4 0.1" pos="0 -4 0.1" rgba="0.6 0.6 0.6 1" contype="1" conaffinity="1"/>
-        <geom type="box" size="0.4 0.4 0.4" pos="2 -4 0.4" rgba="0.4 0.7 0.5 1" contype="1" conaffinity="1"/>
-        <geom type="box" size="0.6 0.2 0.2" pos="-2 4 0.2" rgba="0.8 0.4 0.4 1" contype="1" conaffinity="1"/>
-
-        <!-- ═══ OBJEK RINTANGAN DINAMIS (Bisa didorong robot) ═══ -->
-        <body name="dyn_box1" pos="2 -2 0.5">
-            <freejoint/>
-            <geom type="box" size="0.2 0.2 0.2" rgba="0.9 0.6 0.2 1" contype="1" conaffinity="1" mass="1.0" friction="0.5 0.05 0.05"/>
-        </body>
-        <body name="dyn_ball1" pos="-2 -3 0.5">
-            <freejoint/>
-            <geom type="sphere" size="0.25" rgba="0.2 0.8 0.9 1" contype="1" conaffinity="1" mass="0.5" friction="0.5 0.05 0.05"/>
-        </body>
-        <body name="dyn_ball2" pos="1.5 1.5 0.5">
-            <freejoint/>
-            <geom type="sphere" size="0.2" rgba="0.9 0.2 0.5 1" contype="1" conaffinity="1" mass="0.3" friction="0.5 0.05 0.05"/>
-        </body>
-        <body name="dyn_cyl1" pos="-1.5 2.5 0.5">
-            <freejoint/>
-            <geom type="cylinder" size="0.15 0.3" rgba="0.8 0.3 0.8 1" contype="1" conaffinity="1" mass="0.8" friction="0.5 0.05 0.05"/>
-        </body>
-        <body name="dyn_box2" pos="0 -2.5 0.3">
-            <freejoint/>
-            <geom type="box" size="0.15 0.3 0.15" rgba="0.4 0.4 0.9 1" contype="1" conaffinity="1" mass="0.6" friction="0.5 0.05 0.05"/>
-        </body>
-
         <!-- TINGGI SPAWN (z=0.43) agar roda menempel persis di lantai -->
         <body name="torso" pos="0 0 0.43">
             <freejoint name="root"/>
