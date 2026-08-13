@@ -354,7 +354,6 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
             frame  = cv2.cvtColor(pixels, cv2.COLOR_RGB2BGR)
             
             # Simpan frame untuk AI vision
-            global latest_frame
             latest_frame = frame.copy()
 
             panel  = np.zeros((210, frame.shape[1], 3), dtype=np.uint8)
