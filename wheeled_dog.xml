@@ -132,15 +132,15 @@
     </worldbody>
 
     <actuator>
-        <position name="fl_shoulder_motor" joint="fl_shoulder" kp="20" ctrllimited="true" ctrlrange="-1.2 1.2"/>
-        <position name="fr_shoulder_motor" joint="fr_shoulder" kp="20" ctrllimited="true" ctrlrange="-1.2 1.2"/>
-        <position name="bl_shoulder_motor" joint="bl_shoulder" kp="20" ctrllimited="true" ctrlrange="-1.2 1.2"/>
-        <position name="br_shoulder_motor" joint="br_shoulder" kp="20" ctrllimited="true" ctrlrange="-1.2 1.2"/>
+        <position name="fl_shoulder_motor" joint="fl_shoulder" kp="300" ctrllimited="true" ctrlrange="-1.2 1.2"/>
+        <position name="fr_shoulder_motor" joint="fr_shoulder" kp="300" ctrllimited="true" ctrlrange="-1.2 1.2"/>
+        <position name="bl_shoulder_motor" joint="bl_shoulder" kp="300" ctrllimited="true" ctrlrange="-1.2 1.2"/>
+        <position name="br_shoulder_motor" joint="br_shoulder" kp="300" ctrllimited="true" ctrlrange="-1.2 1.2"/>
 
-        <position name="fl_knee_motor" joint="fl_knee" kp="20" ctrllimited="true" ctrlrange="-1.8 0"/>
-        <position name="fr_knee_motor" joint="fr_knee" kp="20" ctrllimited="true" ctrlrange="-1.8 0"/>
-        <position name="bl_knee_motor" joint="bl_knee" kp="20" ctrllimited="true" ctrlrange="-1.8 0"/>
-        <position name="br_knee_motor" joint="br_knee" kp="20" ctrllimited="true" ctrlrange="-1.8 0"/>
+        <position name="fl_knee_motor" joint="fl_knee" kp="300" ctrllimited="true" ctrlrange="-1.8 0"/>
+        <position name="fr_knee_motor" joint="fr_knee" kp="300" ctrllimited="true" ctrlrange="-1.8 0"/>
+        <position name="bl_knee_motor" joint="bl_knee" kp="300" ctrllimited="true" ctrlrange="-1.8 0"/>
+        <position name="br_knee_motor" joint="br_knee" kp="300" ctrllimited="true" ctrlrange="-1.8 0"/>
 
         <!-- Torsi diperkecil ke 3 agar tidak meledak, batas diredam -->
         <velocity name="fl_wheel_motor" joint="fl_wheel" kv="3" ctrllimited="true" ctrlrange="-20 20"/>
