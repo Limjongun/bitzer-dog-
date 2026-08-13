@@ -43,6 +43,7 @@ A = {
 STAND_SH  =  0.0;  STAND_KN  =  0.0
 CROUCH_SH =  0.5;  CROUCH_KN = -0.9
 WALK_SPD  =  40.0
+ACCEL_RATE=  1.5  # Seberapa cepat akselerasi bertambah tiap langkah simulasi
 
 
 def set_legs(sh, kn):
@@ -278,20 +279,36 @@ RENDER_DT = 1.0 / 30
 
 with mujoco.viewer.launch_passive(model, data) as viewer:
     last_render = time.time()
+    
+    # State kecepatan saat ini untuk efek akselerasi (gradient)
+    current_vL = 0.0
+    current_vR = 0.0
 
     while viewer.is_running():
-        # Hitung kecepatan roda dari state tombol
-        vL = vR = 0.0
+        # 1. Tentukan target kecepatan dari state tombol
+        target_vL = target_vR = 0.0
         if ctrl_state["front"]:
-            vL += WALK_SPD; vR += WALK_SPD
+            target_vL += WALK_SPD; target_vR += WALK_SPD
         if ctrl_state["back"]:
-            vL -= WALK_SPD; vR -= WALK_SPD
+            target_vL -= WALK_SPD; target_vR -= WALK_SPD
         if ctrl_state["left"]:
-            vL -= WALK_SPD * 0.6; vR += WALK_SPD * 0.6
+            target_vL -= WALK_SPD * 0.6; target_vR += WALK_SPD * 0.6
         if ctrl_state["right"]:
-            vL += WALK_SPD * 0.6; vR -= WALK_SPD * 0.6
+            target_vL += WALK_SPD * 0.6; target_vR -= WALK_SPD * 0.6
 
-        set_wheels(vL, vR)
+        # 2. Gradient Penaikan Kecepatan (Akselerasi linear bertahap)
+        if current_vL < target_vL:
+            current_vL = min(current_vL + ACCEL_RATE, target_vL)
+        elif current_vL > target_vL:
+            current_vL = max(current_vL - ACCEL_RATE, target_vL)
+
+        if current_vR < target_vR:
+            current_vR = min(current_vR + ACCEL_RATE, target_vR)
+        elif current_vR > target_vR:
+            current_vR = max(current_vR - ACCEL_RATE, target_vR)
+
+        # Terapkan kecepatan yang sudah di-smoothing
+        set_wheels(current_vL, current_vR)
 
         mujoco.mj_step(model, data)
         viewer.sync()
