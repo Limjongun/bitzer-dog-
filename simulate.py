@@ -425,7 +425,6 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
                     input_buffer = ""
                     is_typing = False
                     
-                    global ai_latest_thought
                     if current_mission.lower() == "stop":
                         execute_ai_commands(["[STOP]"])
                         ai_latest_thought = "Misi dihentikan."
