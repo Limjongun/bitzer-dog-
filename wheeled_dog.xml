@@ -11,7 +11,8 @@
 
     <asset>
         <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0.05 0.05 0.12" width="512" height="512"/>
-        <material name="mat_floor" rgba="0.35 0.35 0.38 1" reflectance="0.0" shininess="0.0"/>
+        <texture name="tex_floor" type="2d" builtin="checker" rgb1="0.25 0.25 0.25" rgb2="0.15 0.15 0.15" width="512" height="512"/>
+        <material name="mat_floor" texture="tex_floor" texrepeat="10 10" texuniform="true" reflectance="0.1"/>
     </asset>
 
     <worldbody>
